@@ -22274,72 +22274,20 @@ const prompt = generateSharePostPrompt(currentPostToShare.title, currentPostToSh
 // ▲▲▲ 粘贴到这里结束 ▲▲▲
 // --- Memories System Functions ---
 
-        // ▼▼▼ 请用这个完整的函数替换掉旧的 setupMemoriesSystem 函数 ▼▼▼
         function setupMemoriesSystem() {
-            // 打开“回忆”主界面的按钮
             document.getElementById('ai-memories-btn').addEventListener('click', () => {
                 if (currentChatId && currentChatType === 'private') {
                     openMemoriesScreen(currentChatId);
                 }
             });
 
-            // --- 核心修正：将所有交互逻辑整合到一个事件监听器中 ---
-            const container = document.getElementById('memories-list-container');
-            const deleteMemoryModal = document.getElementById('delete-memory-modal');
-            const confirmDeleteBtn = document.getElementById('confirm-delete-memory-btn');
-            const cancelDeleteBtn = document.getElementById('cancel-delete-memory-btn');
-            let memoryIdToDelete = null;
-
-            if (container) {
-                container.addEventListener('click', (e) => {
-                    const deleteBtn = e.target.closest('.delete-memory-btn');
-                    const memoryItem = e.target.closest('.list-item');
-
-                    if (deleteBtn) {
-                        // 如果点击的是删除按钮
-                        e.stopPropagation(); // 阻止事件冒泡，防止意外打开详情页
-                        memoryIdToDelete = deleteBtn.dataset.id;
-                        if (deleteMemoryModal) {
-                            deleteMemoryModal.classList.add('visible');
-                        }
-                    } else if (memoryItem && memoryItem.dataset.id) {
-                        // 如果点击的是回忆条目本身
-                        openMemoryDetail(memoryItem.dataset.id);
-                    }
-                });
-            }
-
-            // --- 删除确认弹窗的逻辑 (保持不变，但放在这里更清晰) ---
-            if (cancelDeleteBtn) {
-                cancelDeleteBtn.addEventListener('click', () => {
-                    if (deleteMemoryModal) {
-                        deleteMemoryModal.classList.remove('visible');
-                    }
-                    memoryIdToDelete = null;
-                });
-            }
-            
-            if (confirmDeleteBtn) {
-                confirmDeleteBtn.addEventListener('click', async () => {
-                    if (!memoryIdToDelete) return;
-
-                    const character = db.characters.find(c => c.id === currentChatId);
-                    if (character && character.memories) {
-                        character.memories = character.memories.filter(m => m.id !== memoryIdToDelete);
-                        
-                        await saveData(); 
-                        renderMemoriesList(character.memories); 
-                        showToast('回忆已删除');
-                    }
-
-                    if (deleteMemoryModal) {
-                        deleteMemoryModal.classList.remove('visible');
-                    }
-                    memoryIdToDelete = null;
-                });
-            }
+            document.getElementById('memories-list-container').addEventListener('click', (e) => {
+                const memoryItem = e.target.closest('.list-item');
+                if (memoryItem && memoryItem.dataset.id) {
+                    openMemoryDetail(memoryItem.dataset.id);
+                }
+            });
         }
-        // ▲▲▲ 替换到这里结束 ▲▲▲
 
         function openMemoriesScreen(characterId) {
             const character = db.characters.find(c => c.id === characterId);
@@ -22377,7 +22325,6 @@ const prompt = generateSharePostPrompt(currentPostToShare.title, currentPostToSh
                         <div class="item-name">${memory.title}</div>
                         <div class="item-preview">${dateString}</div>
                     </div>
-                    <button class="delete-memory-btn" data-id="${memory.id}">&times;</button>
                 `;
                 container.appendChild(li);
             });
@@ -29765,33 +29712,6 @@ fileInput.addEventListener('change', async (e)=>{
   gap: 8px !important;
 }
 
-/* --- 新增：回忆记录删除按钮样式 --- */
-#memories-screen .list-item {
-    position: relative; /* 让删除按钮可以相对于它定位 */
-}
-
-.delete-memory-btn {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.08);
-    color: #888;
-    border: none;
-    cursor: pointer;
-    font-size: 20px;
-    line-height: 28px; /* 垂直居中 "×" */
-    text-align: center;
-    padding: 0;
-    transition: background-color 0.2s, color 0.2s;
-}
-
-.delete-memory-btn:hover {
-    background-color: rgba(229, 57, 53, 0.8); /* 悬浮时变红 */
-    color: white;
-}
   
 </style>
 
@@ -31660,24 +31580,7 @@ fileInput.addEventListener('change', async (e)=>{
         </div>
     </div>
 </div>
-<!-- =============================================================== -->
-<!-- START: 新增的回忆删除确认弹窗 -->
-<!-- =============================================================== -->
-<div id="delete-memory-modal" class="modal-overlay">
-    <div class="modal-window">
-        <h3>确认删除</h3>
-        <p style="text-align: center; color: #666; margin: 20px 0;">
-            你确定要永久删除这条回忆吗？此操作无法撤销。
-        </p>
-        <div style="display: flex; gap: 10px; margin-top: 20px;">
-            <button id="cancel-delete-memory-btn" class="btn btn-neutral" style="flex: 1;">取消</button>
-            <button id="confirm-delete-memory-btn" class="btn btn-danger" style="flex: 1;">确认删除</button>
-        </div>
-    </div>
-</div>
-<!-- =============================================================== -->
-<!-- END: 回忆删除确认弹窗 -->
-<!-- =============================================================== -->  
+  
 </body>
 
 </html>
