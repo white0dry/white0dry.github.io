@@ -22274,60 +22274,72 @@ const prompt = generateSharePostPrompt(currentPostToShare.title, currentPostToSh
 // ▲▲▲ 粘贴到这里结束 ▲▲▲
 // --- Memories System Functions ---
 
+        // ▼▼▼ 请用这个完整的函数替换掉旧的 setupMemoriesSystem 函数 ▼▼▼
         function setupMemoriesSystem() {
+            // 打开“回忆”主界面的按钮
             document.getElementById('ai-memories-btn').addEventListener('click', () => {
                 if (currentChatId && currentChatType === 'private') {
                     openMemoriesScreen(currentChatId);
                 }
             });
 
-            document.getElementById('memories-list-container').addEventListener('click', (e) => {
-                const memoryItem = e.target.closest('.list-item');
-                if (memoryItem && memoryItem.dataset.id) {
-                    openMemoryDetail(memoryItem.dataset.id);
-                }
-            });
-
-            // --- 新增：处理删除回忆的逻辑 ---
+            // --- 核心修正：将所有交互逻辑整合到一个事件监听器中 ---
+            const container = document.getElementById('memories-list-container');
             const deleteMemoryModal = document.getElementById('delete-memory-modal');
             const confirmDeleteBtn = document.getElementById('confirm-delete-memory-btn');
             const cancelDeleteBtn = document.getElementById('cancel-delete-memory-btn');
             let memoryIdToDelete = null;
 
-            // 使用事件委托来处理所有删除按钮的点击
-            container.addEventListener('click', (e) => {
-                const deleteBtn = e.target.closest('.delete-memory-btn');
-                if (deleteBtn) {
-                    e.stopPropagation(); // 阻止事件冒泡到父元素，防止意外打开回忆详情
-                    memoryIdToDelete = deleteBtn.dataset.id;
-                    deleteMemoryModal.classList.add('visible');
-                }
-            });
+            if (container) {
+                container.addEventListener('click', (e) => {
+                    const deleteBtn = e.target.closest('.delete-memory-btn');
+                    const memoryItem = e.target.closest('.list-item');
 
-            // 为弹窗的“取消”按钮绑定事件
-            cancelDeleteBtn.addEventListener('click', () => {
-                deleteMemoryModal.classList.remove('visible');
-                memoryIdToDelete = null;
-            });
+                    if (deleteBtn) {
+                        // 如果点击的是删除按钮
+                        e.stopPropagation(); // 阻止事件冒泡，防止意外打开详情页
+                        memoryIdToDelete = deleteBtn.dataset.id;
+                        if (deleteMemoryModal) {
+                            deleteMemoryModal.classList.add('visible');
+                        }
+                    } else if (memoryItem && memoryItem.dataset.id) {
+                        // 如果点击的是回忆条目本身
+                        openMemoryDetail(memoryItem.dataset.id);
+                    }
+                });
+            }
 
-            // 为弹窗的“确认删除”按钮绑定事件
-            confirmDeleteBtn.addEventListener('click', async () => {
-                if (!memoryIdToDelete) return;
+            // --- 删除确认弹窗的逻辑 (保持不变，但放在这里更清晰) ---
+            if (cancelDeleteBtn) {
+                cancelDeleteBtn.addEventListener('click', () => {
+                    if (deleteMemoryModal) {
+                        deleteMemoryModal.classList.remove('visible');
+                    }
+                    memoryIdToDelete = null;
+                });
+            }
+            
+            if (confirmDeleteBtn) {
+                confirmDeleteBtn.addEventListener('click', async () => {
+                    if (!memoryIdToDelete) return;
 
-                const character = db.characters.find(c => c.id === currentChatId);
-                if (character && character.memories) {
-                    // 从角色的回忆数组中过滤掉要删除的回忆
-                    character.memories = character.memories.filter(m => m.id !== memoryIdToDelete);
-                    
-                    await saveData(); // 保存更改
-                    renderMemoriesList(character.memories); // 重新渲染列表
-                    showToast('回忆已删除');
-                }
+                    const character = db.characters.find(c => c.id === currentChatId);
+                    if (character && character.memories) {
+                        character.memories = character.memories.filter(m => m.id !== memoryIdToDelete);
+                        
+                        await saveData(); 
+                        renderMemoriesList(character.memories); 
+                        showToast('回忆已删除');
+                    }
 
-                deleteMemoryModal.classList.remove('visible');
-                memoryIdToDelete = null;
-            });
+                    if (deleteMemoryModal) {
+                        deleteMemoryModal.classList.remove('visible');
+                    }
+                    memoryIdToDelete = null;
+                });
+            }
         }
+        // ▲▲▲ 替换到这里结束 ▲▲▲
 
         function openMemoriesScreen(characterId) {
             const character = db.characters.find(c => c.id === characterId);
