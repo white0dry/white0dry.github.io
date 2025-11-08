@@ -936,7 +936,7 @@
 
 /* 感叹号位置调整 */
 .message-wrapper.received .message-bubble-row .block-indicator.received {
-    order: 3; (移除或注释掉此行) */
+    /*order: 3; (移除或注释掉此行) */
     margin-left: 8px; /* 将 margin-right 改为 margin-left */
 }
 .message-wrapper.sent .message-bubble-row .block-indicator.sent {
@@ -4981,6 +4981,36 @@
 .wish-item.completed .item-details {
     opacity: 0.6;
 }
+
+/* --- 新增：回忆记录删除按钮样式 --- */
+#memories-list-container .list-item {
+    position: relative; /* 为按钮定位提供基准 */
+}
+.delete-memory-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+    opacity: 0.6;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 5; /* 确保按钮在上方 */
+}
+.delete-memory-btn:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+.delete-memory-btn svg {
+    width: 22px;
+    height: 22px;
+    fill: #aaa; /* 按钮默认是灰色 */
+}
+.delete-memory-btn:hover svg {
+    fill: #ef5350; /* 鼠标悬停时变为红色 */
+}
+
 </style>
 <!-- === /zindex-patch === -->
 </head>
@@ -12084,14 +12114,30 @@ function renderCustomizeForm() {
             backupDataBtn.textContent = '备份数据';
             backupDataBtn.disabled = loadingBtn
 
-         backupDataBtn.addEventListener('click', async () => {
+            backupDataBtn.addEventListener('click', async () => {
                 if(loadingBtn) return;
                 loadingBtn = true;
                 try {
                     // 新增：收集所有localStorage中的预设数据
                     const localStorageData = {};
-                    const presetKeys = ['fontPresets', 'apiPresets', 'bubblePresets', 'myPersonaPresets'];
-                    presetKeys.forEach(key => {
+                    // 核心修改：在这里加入了所有需要备份的localStorage键
+                    const keysToBackup = [
+                        // 原有的预设
+                        'fontPresets', 
+                        'apiPresets', 
+                        'bubblePresets', 
+                        'myPersonaPresets',
+                        // 新增：论坛预设
+                        'forumPresets',
+                        // 新增：动态主页的个人信息
+                        'myTopName',
+                        'myTopId',
+                        'myTopLoc',
+                        'myTopSignature',
+                        'myTopAvatar',
+                        'myTopBg'
+                    ];
+                    keysToBackup.forEach(key => {
                         const data = localStorage.getItem(key);
                         if (data) {
                             localStorageData[key] = data;
@@ -12158,8 +12204,13 @@ function renderCustomizeForm() {
 
                         // 新增：检查是新格式还是旧格式的备份
                         if (importedObject.dbData) { // 新格式
-                            // 恢复localStorage中的预设
+                            // 恢复localStorage中的所有数据（包括预设和动态主页信息）
                             if (importedObject.localStorageData) {
+                                // 清空现有的相关localStorage，以防旧数据残留
+                                const keysToBackup = ['fontPresets', 'apiPresets', 'bubblePresets', 'myPersonaPresets', 'forumPresets', 'myTopName', 'myTopId', 'myTopLoc', 'myTopSignature', 'myTopAvatar', 'myTopBg'];
+                                keysToBackup.forEach(key => localStorage.removeItem(key));
+                                
+                                // 写入备份中的新数据
                                 Object.entries(importedObject.localStorageData).forEach(([key, value]) => {
                                     localStorage.setItem(key, value);
                                 });
@@ -22274,6 +22325,7 @@ const prompt = generateSharePostPrompt(currentPostToShare.title, currentPostToSh
 // ▲▲▲ 粘贴到这里结束 ▲▲▲
 // --- Memories System Functions ---
 
+        // --- 修改：为回忆列表添加删除事件处理 ---
         function setupMemoriesSystem() {
             document.getElementById('ai-memories-btn').addEventListener('click', () => {
                 if (currentChatId && currentChatType === 'private') {
@@ -22281,7 +22333,35 @@ const prompt = generateSharePostPrompt(currentPostToShare.title, currentPostToSh
                 }
             });
 
-            document.getElementById('memories-list-container').addEventListener('click', (e) => {
+            // 核心修改：使用事件委托来统一处理点击事件
+            document.getElementById('memories-list-container').addEventListener('click', async (e) => {
+                // 检查点击的是否是删除按钮
+                const deleteBtn = e.target.closest('.delete-memory-btn');
+                if (deleteBtn) {
+                    e.stopPropagation(); // 阻止事件冒泡，防止同时触发打开详情页的逻辑
+                    const memoryId = deleteBtn.dataset.id;
+                    const character = db.characters.find(c => c.id === currentChatId);
+                    
+                    if (!character || !character.memories) return;
+
+                    // 弹出确认对话框
+                    if (confirm('确定要删除这条回忆记录吗？此操作不可撤销。')) {
+                        // 从数据中过滤掉要删除的回忆
+                        character.memories = character.memories.filter(m => m.id !== memoryId);
+                        
+                        // 保存更改
+                        await saveData();
+                        
+                        // 重新渲染列表以更新界面
+                        renderMemoriesList(character.memories);
+                        
+                        // 给出成功提示
+                        showToast('回忆已删除');
+                    }
+                    return; // 处理完删除后，结束函数
+                }
+
+                // 如果点击的不是删除按钮，则执行原来的打开详情页逻辑
                 const memoryItem = e.target.closest('.list-item');
                 if (memoryItem && memoryItem.dataset.id) {
                     openMemoryDetail(memoryItem.dataset.id);
@@ -22289,14 +22369,7 @@ const prompt = generateSharePostPrompt(currentPostToShare.title, currentPostToSh
             });
         }
 
-        function openMemoriesScreen(characterId) {
-            const character = db.characters.find(c => c.id === characterId);
-            if (character) {
-                renderMemoriesList(character.memories || []);
-                switchScreen('memories-screen');
-            }
-        }
-
+        // --- 修改：为回忆列表项添加删除按钮 ---
         function renderMemoriesList(memories) {
             const container = document.getElementById('memories-list-container');
             const placeholder = document.getElementById('no-memories-placeholder');
@@ -22320,11 +22393,15 @@ const prompt = generateSharePostPrompt(currentPostToShare.title, currentPostToSh
                 const date = new Date(memory.timestamp);
                 const dateString = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 
+                // 核心修改：在HTML结构中加入了删除按钮
                 li.innerHTML = `
                     <div class="item-details">
                         <div class="item-name">${memory.title}</div>
                         <div class="item-preview">${dateString}</div>
                     </div>
+                    <button class="delete-memory-btn" data-id="${memory.id}" title="删除此条回忆">
+                        <svg viewBox="0 0 24 24"><path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z" /></svg>
+                    </button>
                 `;
                 container.appendChild(li);
             });
