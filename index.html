@@ -12090,7 +12090,16 @@ function renderCustomizeForm() {
                 try {
                     // 新增：收集所有localStorage中的预设数据
                     const localStorageData = {};
-                    const presetKeys = ['fontPresets', 'apiPresets', 'bubblePresets', 'myPersonaPresets'];
+                    // ▼▼▼ 用下面这个新的、更完整的列表替换旧的 presetKeys 列表 ▼▼▼
+                    const presetKeys = [
+                        // 原有的预设
+                        'fontPresets', 'apiPresets', 'bubblePresets', 'myPersonaPresets', 
+                        // 新增：动态(朋友圈)的个人资料
+                        'myTopName', 'myTopId', 'myTopLoc', 'myTopSignature', 'myTopAvatar', 'myTopBg',
+                        // 新增：论坛的用户人设和版块配置预设
+                        'userPersonaPresets', 'forumPresets'
+                    ];
+                    // ▲▲▲ 替换结束 ▲▲▲
                     presetKeys.forEach(key => {
                         const data = localStorage.getItem(key);
                         if (data) {
