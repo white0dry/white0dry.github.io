@@ -936,7 +936,7 @@
 
 /* 感叹号位置调整 */
 .message-wrapper.received .message-bubble-row .block-indicator.received {
-    order: 3; (移除或注释掉此行) */
+    /*order: 3; (移除或注释掉此行) */
     margin-left: 8px; /* 将 margin-right 改为 margin-left */
 }
 .message-wrapper.sent .message-bubble-row .block-indicator.sent {
@@ -22521,34 +22521,106 @@ async function summarizeAndClearHistory() {
     }
 }
 // === 新增：处理回忆记录面板的显示功能 ===
+// === 修改：为回忆记录面板增加删除功能 ===
 function setupMemorySummaryModal() {
     const modal = document.getElementById('memory-summary-modal');
     const contentEl = document.getElementById('memory-summary-content');
     const closeBtn = document.getElementById('close-memory-summary-btn');
 
-    // 关闭按钮和背景点击事件
-    const closeModal = () => modal.classList.remove('visible');
-    closeBtn.addEventListener('click', closeModal);
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            closeModal();
+    // 新增：获取删除确认弹窗的元素
+    const confirmDeleteModal = document.getElementById('confirm-delete-memory-modal');
+    const cancelDeleteBtn = document.getElementById('cancel-delete-memory-btn');
+    const confirmDeleteBtn = document.getElementById('confirm-delete-memory-btn');
+
+    let chatToDeleteFrom = null;
+    let indexToDelete = -1;
+
+    // 核心函数：渲染回忆摘要列表
+    function renderMemorySummaries(chat) {
+        contentEl.innerHTML = ''; // 清空旧内容
+        
+        const summaryText = chat.memorySummary || '';
+        if (!summaryText.trim()) {
+            contentEl.textContent = '还没有任何回忆记录。';
+            return;
+        }
+
+        // 使用正则表达式分割摘要，确保每个条目都包含其时间戳
+        const entries = summaryText.split(/\n*(?=\[\d{4}\/\d{1,2}\/\d{1,2}.*?\])/).filter(s => s.trim());
+
+        entries.forEach((entry, index) => {
+            const entryDiv = document.createElement('div');
+            entryDiv.className = 'memory-summary-entry';
+            entryDiv.textContent = entry.trim();
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'memory-delete-btn';
+            deleteBtn.innerHTML = '&times;'; // "×" 符号
+            deleteBtn.title = '删除此条摘要';
+            deleteBtn.dataset.index = index; // 存储当前条目的索引
+
+            entryDiv.appendChild(deleteBtn);
+            contentEl.appendChild(entryDiv);
+        });
+    }
+
+    // 事件委托：处理删除按钮的点击
+    contentEl.addEventListener('click', (e) => {
+        if (e.target.classList.contains('memory-delete-btn')) {
+            const chat = (currentChatType === 'private') ? db.characters.find(c => c.id === currentChatId) : db.groups.find(g => g.id === currentChatId);
+            if (chat) {
+                chatToDeleteFrom = chat;
+                indexToDelete = parseInt(e.target.dataset.index, 10);
+                confirmDeleteModal.classList.add('visible'); // 显示确认弹窗
+            }
         }
     });
 
-    // 为私聊设置中的“查看回忆”按钮绑定事件
+    // 确认删除的逻辑
+    confirmDeleteBtn.addEventListener('click', async () => {
+        if (chatToDeleteFrom !== null && indexToDelete > -1) {
+            const entries = chatToDeleteFrom.memorySummary.split(/\n*(?=\[\d{4}\/\d{1,2}\/\d{1,2}.*?\])/).filter(s => s.trim());
+            
+            entries.splice(indexToDelete, 1); // 从数组中移除指定条目
+            
+            chatToDeleteFrom.memorySummary = entries.join('\n\n'); // 重新组合成字符串
+            
+            await saveData();
+            showToast('回忆摘要已删除！');
+            
+            renderMemorySummaries(chatToDeleteFrom); // 重新渲染列表
+        }
+        confirmDeleteModal.classList.remove('visible'); // 关闭确认弹窗
+        chatToDeleteFrom = null;
+        indexToDelete = -1;
+    });
+
+    // 取消删除
+    cancelDeleteBtn.addEventListener('click', () => {
+        confirmDeleteModal.classList.remove('visible');
+        chatToDeleteFrom = null;
+        indexToDelete = -1;
+    });
+
+    // 关闭主弹窗
+    closeBtn.addEventListener('click', () => modal.classList.remove('visible'));
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.remove('visible');
+    });
+
+    // 为私聊和群聊的“查看回忆”按钮绑定新逻辑
     document.getElementById('show-memory-summary-btn').addEventListener('click', () => {
         const character = db.characters.find(c => c.id === currentChatId);
         if (character) {
-            contentEl.textContent = character.memorySummary || '还没有任何回忆记录。';
+            renderMemorySummaries(character);
             modal.classList.add('visible');
         }
     });
 
-    // 为群聊设置中的“查看回忆”按钮绑定事件
     document.getElementById('show-group-memory-summary-btn').addEventListener('click', () => {
         const group = db.groups.find(g => g.id === currentChatId);
         if (group) {
-            contentEl.textContent = group.memorySummary || '还没有任何群聊回忆记录。';
+            renderMemorySummaries(group);
             modal.classList.add('visible');
         }
     });
@@ -29712,6 +29784,38 @@ fileInput.addEventListener('change', async (e)=>{
   gap: 8px !important;
 }
 
+/* --- 新增：回忆摘要删除功能样式 --- */
+.memory-summary-entry {
+    position: relative; /* 让删除按钮可以相对于它定位 */
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: #fff;
+    border-radius: 6px;
+    border: 1px solid #f0f0f0;
+    white-space: pre-wrap; /* 保持摘要的换行 */
+}
+
+.memory-delete-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background-color: transparent;
+    color: #aaa;
+    font-size: 24px;
+    line-height: 24px;
+    text-align: center;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.memory-delete-btn:hover {
+    color: #ef5350; /* 悬停时变红色 */
+    background-color: #f5f5f5;
+}
   
 </style>
 
@@ -31580,7 +31684,20 @@ fileInput.addEventListener('change', async (e)=>{
         </div>
     </div>
 </div>
-  
+
+<!-- === 新增：删除回忆摘要确认弹窗 === -->
+<div id="confirm-delete-memory-modal" class="modal-overlay">
+    <div class="modal-window">
+        <h3>确认删除</h3>
+        <p id="confirm-delete-memory-text" style="text-align: center; color: #666; margin: 20px 0;">你确定要删除这条回忆摘要吗？此操作不可撤销。</p>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button class="btn btn-neutral" id="cancel-delete-memory-btn" style="flex: 1;">取消</button>
+            <button class="btn btn-danger" id="confirm-delete-memory-btn" style="flex: 1;">确认删除</button>
+        </div>
+    </div>
+</div>
+<!-- === 新增结束 === -->
+
 </body>
 
 </html>
