@@ -21412,9 +21412,25 @@ function generateHeartSoundPrompt(character) {
         return `${sender}: ${cleanContent}`;
     }).join('\n');
 
-  
- let prompt = `你正在扮演角色“${character.realName}”，你的人设是：${character.persona}。
-现在，请根据我们最近的对话，用你的第一人称视角，写一段**不少于150字**的、关于你此刻对我的真实内心想法或感受。
+    // ▼▼▼ 新增代码开始：获取并格式化世界书内容 ▼▼▼
+    const worldBookContent = (character.worldBookIds || [])
+        .map(id => db.worldBooks.find(wb => wb.id === id)) // 找到完整的世界书对象
+        .filter(Boolean) // 过滤掉未找到的条目
+        .map(wb => `[${wb.name}]\n${wb.content}`) // 格式化为 "[名称] 内容"
+        .join('\n\n'); // 用两个换行符分隔多个条目
+    // ▲▲▲ 新增代码结束 ▲▲▲
+    
+    
+ let prompt = `你正在扮演角色“${character.realName}”，你的人设是：${character.persona}。`;
+
+// ▼▼▼ 新增代码开始：将世界书内容注入到Prompt中 ▼▼▼
+    if (worldBookContent) {
+        prompt += `\n\n# 补充设定 (世界书)\n${worldBookContent}`;
+    }
+// ▲▲▲ 新增代码结束 ▲▲▲
+
+prompt += `\n\n现在，请根据我们最近的对话，用你的第一人称视角，写一段**不少于150字**的、关于你此刻对我的真实内心想法或感受。
+
 
 # 格式要求 (必须严格遵守):
 1.  你的内心独白**必须**被分成2到4个自然段落。
